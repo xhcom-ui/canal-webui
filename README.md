@@ -22,6 +22,15 @@ Canal 数据同步管理平台（CanalSync-Admin）
 
 ## 本地运行
 
+<img width="1832" height="1009" alt="e73dd10d5367774e0acf6add582517d3" src="https://github.com/user-attachments/assets/0856b10a-0674-4f39-88d7-60aa68a6cfdc" />
+<img width="2560" height="1319" alt="ab807766725b9bc5e9492a733910df41" src="https://github.com/user-attachments/assets/8da1181d-0ce4-4111-ab2e-4772c8a7acaa" />
+<img width="1833" height="1007" alt="9187cc84784abf7f10a97a1d2aefc8da" src="https://github.com/user-attachments/assets/7613daec-5742-40c7-aea3-3dc53c66c4cd" />
+<img width="1826" height="1004" alt="5c1af65e337ba2bafd3e2038021dade6" src="https://github.com/user-attachments/assets/66bf5413-9aa3-4541-bc28-9cec8ecc690e" />
+<img width="1833" height="1009" alt="62fa8d4844dc53557a38eac378b16451" src="https://github.com/user-attachments/assets/4adf4b23-b25b-436a-a9fa-b900fee0bf7b" />
+
+
+
+
 启动后端：
 
 ```bash
