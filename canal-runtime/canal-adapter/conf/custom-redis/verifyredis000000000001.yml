@@ -1,0 +1,26 @@
+# Redis is not an official Canal Adapter plugin in this runtime.
+# This file is generated as a custom plugin contract for later extension.
+destination: verify_mysql_dest
+groupId: g1
+target:
+  type: redis
+  mode: standalone
+  host: 127.0.0.1
+  port: 6379
+  database: 6
+  keyPattern: user_profile:{id}
+  valueType: HASH
+  valueMapping: 
+  ttlSeconds: 0
+  deletePolicy: DELETE_KEY
+source:
+  dataSourceKey: verify_mysql_source
+  database: canal_sync_verify
+  table: user_profile
+  sql: "SELECT id, name, mobile, status, updated_at FROM user_profile"
+columns:
+  - id: id
+  - name: name
+  - mobile: mobile
+  - status: status
+  - updated_at: updated_at

@@ -1,0 +1,11 @@
+      - name: rdb
+        key: verify_mysql_target
+        properties:
+          jdbc.driverClassName: com.mysql.jdbc.Driver
+          jdbc.url: "jdbc:mysql://localhost:3306/canal_sync_target?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+          jdbc.username: "root"
+          jdbc.password: "12345678"
+          threads: 1
+          commitSize: 3000
+          batchSize: 3000
+          scheduleTime: 600

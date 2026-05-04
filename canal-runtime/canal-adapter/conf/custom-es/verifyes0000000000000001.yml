@@ -1,0 +1,19 @@
+destination: verify_mysql_dest
+groupId: g1
+target:
+  type: elasticsearch
+  hosts: http://127.0.0.1:9200
+  index: user_profile_index
+  documentId: id
+  deletePolicy: DELETE_DOCUMENT
+source:
+  dataSourceKey: verify_mysql_source
+  database: canal_sync_verify
+  table: user_profile
+  sql: "SELECT id, name, mobile, status, updated_at FROM user_profile"
+columns:
+  - id: id
+  - name: name
+  - mobile: mobile
+  - status: status
+  - updated_at: updated_at

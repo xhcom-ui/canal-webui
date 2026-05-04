@@ -1,0 +1,53 @@
+package com.openclaw.canalweb.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record DatasourceSaveRequest(
+        Long id,
+        @NotBlank String dataSourceKey,
+        @NotBlank String host,
+        @NotNull Integer port,
+        @NotBlank String username,
+        @NotBlank String password,
+        @NotBlank String dbName,
+        @NotBlank String canalDestination,
+        String filterRegex,
+        String filterBlackRegex,
+        String binlogFile,
+        Long binlogPosition,
+        Long binlogTimestamp,
+        String gtid,
+        Integer gtidEnabled,
+        Long serverId,
+        String fieldFilter,
+        String fieldBlackFilter,
+        Integer filterDmlInsert,
+        Integer filterDmlUpdate,
+        Integer filterDmlDelete,
+        Integer filterQueryDml,
+        Integer filterQueryDcl,
+        Integer filterQueryDdl,
+        Integer filterRows,
+        Integer filterTableError,
+        Integer filterTransactionEntry,
+        Integer ddlIsolation,
+        Integer tsdbEnable,
+        String tsdbUrl,
+        String tsdbUsername,
+        String tsdbPassword,
+        Integer tsdbSnapshotInterval,
+        Integer tsdbSnapshotExpire,
+        String standbyAddress,
+        String standbyJournalName,
+        Long standbyPosition,
+        Long standbyTimestamp,
+        String standbyGtid,
+        String rdsAccesskey,
+        String rdsSecretkey,
+        String rdsInstanceId,
+        String sslMode,
+        String extraProperties,
+        Integer status
+) {
+}

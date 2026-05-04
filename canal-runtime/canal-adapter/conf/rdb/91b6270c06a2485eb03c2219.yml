@@ -1,0 +1,20 @@
+dataSourceKey: verify_mysql_source
+destination: verify_mysql_dest
+groupId: g1
+outerAdapterKey: verify_pgsql_target
+concurrent: true
+dbMapping:
+  database: canal_sync_verify
+  table: user_profile
+  targetTable: user_profile_pg_copy
+  writeMode: UPSERT
+  targetPk:
+    id: id
+  targetColumns:
+    id:
+    name:
+    mobile:
+    status:
+    updated_at:
+  etlCondition: ""
+  commitBatch: 3000

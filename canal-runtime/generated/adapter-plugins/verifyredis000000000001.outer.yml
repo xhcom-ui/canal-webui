@@ -1,0 +1,16 @@
+      - name: custom-redis
+        key: verify_redis_target
+        properties:
+          destination: 
+          groupId: g1
+          sourceDatabase: 
+          sourceTable: user_profile
+          host: 127.0.0.1
+          port: 6379
+          password: ""
+          database: 6
+          keyPattern: "user_profile:{id}"
+          valueType: HASH
+          ttlSeconds: 0
+          deletePolicy: DELETE_KEY
+          mappingFile: "../conf/custom-redis/verifyredis000000000001.yml"

@@ -1,0 +1,20 @@
+dataSourceKey: verify_mysql_source
+destination: verify_mysql_dest
+groupId: g1
+outerAdapterKey: verify_es_target
+esMapping:
+  _index: user_profile_index
+  _id: id
+  pk: id
+  upsert: false
+  writeMode: UPSERT
+  deletePolicy: DELETE_DOCUMENT
+  sql: "SELECT t.id, t.name, t.mobile, t.status, t.updated_at FROM user_profile t"
+  etlCondition: ""
+  commitBatch: 3000
+  mapping: |-
+    id=id
+    name=name
+    mobile=mobile
+    status=status
+    updated_at=updated_at

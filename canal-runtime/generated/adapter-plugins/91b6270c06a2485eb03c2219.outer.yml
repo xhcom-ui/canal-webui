@@ -1,0 +1,11 @@
+      - name: rdb
+        key: verify_pgsql_target
+        properties:
+          jdbc.driverClassName: org.postgresql.Driver
+          jdbc.url: "jdbc:postgresql://127.0.0.1:5432/postgres?gssEncMode=disable&sslmode=disable&loginTimeout=60&connectTimeout=30&socketTimeout=60"
+          jdbc.username: "postgres"
+          jdbc.password: "123456"
+          threads: 1
+          commitSize: 3000
+          batchSize: 3000
+          scheduleTime: 600

@@ -1,0 +1,7 @@
+      - name: es8
+        key: verify_es_target
+        hosts: http://127.0.0.1:9200
+        properties:
+          mode: rest
+          cluster.name: my-elasticsearch
+          security.auth: 
