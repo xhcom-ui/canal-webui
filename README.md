@@ -3,6 +3,7 @@ Canal 数据同步管理平台（CanalSync-Admin）
 ## 当前实现
 
 本目录已落地一套可运行的 CanalSync-Admin 基础版本：
+底层能力来源：https://github.com/alibaba/canal
 
 - 后端：Spring Boot 3，提供数据源、同步任务、任务启停、监控、告警、日志接口。
 - 前端：Vue 3 + Vite + Ant Design Vue，提供大盘、数据源、同步任务、Canal 运维、日志、系统管理页面。
