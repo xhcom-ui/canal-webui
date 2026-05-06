@@ -3,6 +3,8 @@ package com.openclaw.canalweb.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.canalweb.domain.DatasourceConfig;
+import com.openclaw.canalweb.domain.TaskFieldMapping;
+import com.openclaw.canalweb.domain.TaskTargetConfig;
 import com.openclaw.canalweb.dto.TaskDetail;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.sql.DataSource;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,12 +26,17 @@ import java.sql.ResultSetMetaData;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class FullSyncService {
+    private static final Pattern TEMPLATE_FIELD_PATTERN = Pattern.compile("\\{([A-Za-z0-9_]+)}");
+
     private final JdbcClient jdbcClient;
     private final SyncTaskService syncTaskService;
     private final DatasourceService datasourceService;
@@ -60,8 +71,12 @@ public class FullSyncService {
         Path output = outputFile(taskId, start);
         long count = 0;
         long failures = 0;
+        EsFullSyncWriter esWriter = null;
         try {
             Files.createDirectories(output.getParent());
+            if ("ES".equalsIgnoreCase(detail.task().targetType())) {
+                esWriter = new EsFullSyncWriter(detail);
+            }
             String url = "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
                     .formatted(datasource.host(), datasource.port(), datasource.dbName());
             try (var connection = DriverManager.getConnection(url, datasource.username(), datasource.password());
@@ -72,11 +87,18 @@ public class FullSyncService {
                     ResultSetMetaData meta = rs.getMetaData();
                     int columns = meta.getColumnCount();
                     while (rs.next()) {
-                        writer.write(rowJson(rs, meta, columns));
+                        Map<String, Object> row = rowMap(rs, meta, columns);
+                        writer.write(objectMapper.writeValueAsString(row));
                         writer.newLine();
+                        if (esWriter != null) {
+                            esWriter.add(row);
+                        }
                         count++;
                     }
                 }
+            }
+            if (esWriter != null) {
+                esWriter.flush();
             }
         } catch (Exception ex) {
             failures = 1;
@@ -86,7 +108,9 @@ public class FullSyncService {
             throw new IllegalStateException("全量同步失败: " + ex.getMessage(), ex);
         }
         markMetrics(taskId, count, failures, start, output);
-        String message = "全量同步完成，原因: %s，记录数: %d，文件: %s".formatted(reason, count, output.toAbsolutePath());
+        String targetMessage = esWriter == null ? "" : "，ES写入: %d".formatted(esWriter.written());
+        String message = "全量同步完成，原因: %s，记录数: %d%s，文件: %s"
+                .formatted(reason, count, targetMessage, output.toAbsolutePath());
         taskLogService.info(taskId, message);
         operationLogService.record("task", "full-sync", taskId, message);
         return output;
@@ -203,26 +227,145 @@ public class FullSyncService {
         return normalized.contains("/canal-runtime/generated/full-sync/");
     }
 
-    private static String rowJson(ResultSet rs, ResultSetMetaData meta, int columns) throws Exception {
-        StringBuilder builder = new StringBuilder("{");
+    private static Map<String, Object> rowMap(ResultSet rs, ResultSetMetaData meta, int columns) throws Exception {
+        Map<String, Object> row = new LinkedHashMap<>();
         for (int index = 1; index <= columns; index++) {
-            if (index > 1) {
-                builder.append(',');
-            }
-            builder.append('"').append(escape(meta.getColumnLabel(index))).append('"').append(':');
-            Object value = rs.getObject(index);
-            if (value == null) {
-                builder.append("null");
-            } else if (value instanceof Number || value instanceof Boolean) {
-                builder.append(value);
-            } else {
-                builder.append('"').append(escape(String.valueOf(value))).append('"');
-            }
+            row.put(meta.getColumnLabel(index), rs.getObject(index));
         }
-        return builder.append('}').toString();
+        return row;
     }
 
-    private static String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    private final class EsFullSyncWriter {
+        private final HttpClient httpClient = HttpClient.newHttpClient();
+        private final String bulkUrl;
+        private final String documentIdTemplate;
+        private final String securityAuth;
+        private final int commitBatch;
+        private final List<TaskFieldMapping> mappings;
+        private final List<String> lines = new ArrayList<>();
+        private int pendingRows = 0;
+        private long written = 0;
+
+        private EsFullSyncWriter(TaskDetail detail) {
+            Map<String, String> config = targetConfigMap(detail.targetConfig());
+            String index = firstText(config, "indexName", "index");
+            if (index.isBlank()) {
+                throw new IllegalArgumentException("ES 全量写入需要配置 indexName");
+            }
+            this.bulkUrl = firstEsHost(config.get("hosts")) + "/" + index + "/_bulk";
+            this.documentIdTemplate = valueOrDefault(firstText(config, "documentId", "idField"), "{id}");
+            this.securityAuth = config.getOrDefault("securityAuth", "");
+            this.commitBatch = intValue(config.get("commitBatch"), 3000);
+            this.mappings = detail.fieldMappings().stream()
+                    .filter(item -> item.enabled() == null || Boolean.TRUE.equals(item.enabled()))
+                    .toList();
+        }
+
+        private void add(Map<String, Object> row) throws Exception {
+            Map<String, Object> document = document(row);
+            String id = documentId(row);
+            Map<String, Object> indexMeta = id.isBlank()
+                    ? Map.of("index", Map.of())
+                    : Map.of("index", Map.of("_id", id));
+            lines.add(objectMapper.writeValueAsString(indexMeta));
+            lines.add(objectMapper.writeValueAsString(document));
+            pendingRows++;
+            if (pendingRows >= commitBatch) {
+                flush();
+            }
+        }
+
+        private void flush() throws Exception {
+            if (lines.isEmpty()) {
+                return;
+            }
+            String body = String.join("\n", lines) + "\n";
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(bulkUrl))
+                    .header("Content-Type", "application/x-ndjson")
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+            if (securityAuth != null && !securityAuth.isBlank()) {
+                builder.header("Authorization", "Basic " + Base64.getEncoder()
+                        .encodeToString(securityAuth.getBytes(StandardCharsets.UTF_8)));
+            }
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("ES bulk 写入失败，HTTP " + response.statusCode() + ": " + response.body());
+            }
+            Map<String, Object> result = objectMapper.readValue(response.body(), new TypeReference<>() {
+            });
+            if (Boolean.TRUE.equals(result.get("errors"))) {
+                throw new IllegalStateException("ES bulk 写入存在失败项: " + response.body());
+            }
+            written += pendingRows;
+            pendingRows = 0;
+            lines.clear();
+        }
+
+        private long written() {
+            return written;
+        }
+
+        private Map<String, Object> document(Map<String, Object> row) {
+            Map<String, Object> document = new LinkedHashMap<>();
+            if (mappings.isEmpty()) {
+                document.putAll(row);
+                return document;
+            }
+            for (TaskFieldMapping mapping : mappings) {
+                document.put(mapping.targetField(), row.get(mapping.sourceField()));
+            }
+            return document;
+        }
+
+        private String documentId(Map<String, Object> row) {
+            String id = documentIdTemplate;
+            Matcher matcher = TEMPLATE_FIELD_PATTERN.matcher(id);
+            StringBuffer buffer = new StringBuffer();
+            while (matcher.find()) {
+                Object value = row.get(matcher.group(1));
+                matcher.appendReplacement(buffer, Matcher.quoteReplacement(value == null ? "" : String.valueOf(value)));
+            }
+            matcher.appendTail(buffer);
+            if (buffer.length() != id.length() || id.contains("{")) {
+                return buffer.toString();
+            }
+            Object value = row.get(id);
+            return value == null ? "" : String.valueOf(value);
+        }
+    }
+
+    private static Map<String, String> targetConfigMap(List<TaskTargetConfig> configs) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (TaskTargetConfig config : configs) {
+            result.put(config.configKey(), config.configValue());
+        }
+        return result;
+    }
+
+    private static String firstText(Map<String, String> config, String... keys) {
+        for (String key : keys) {
+            String value = config.get(key);
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private static String firstEsHost(String hosts) {
+        String first = valueOrDefault(hosts, "127.0.0.1:9200").split(",")[0].trim();
+        return first.contains("://") ? first : "http://" + first;
+    }
+
+    private static String valueOrDefault(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value.trim();
+    }
+
+    private static int intValue(String value, int defaultValue) {
+        try {
+            return value == null || value.isBlank() ? defaultValue : Math.max(1, Integer.parseInt(value.trim()));
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
     }
 }

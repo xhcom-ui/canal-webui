@@ -116,6 +116,7 @@ public class CanalRuntimeSettingService {
     }
 
     private static CanalRuntimeSetting normalize(CanalRuntimeSettingRequest request) {
+        int adminAutoRegister = bool(request.adminAutoRegister(), 0);
         return new CanalRuntimeSetting(
                 SETTING_ID,
                 oneOf(request.serverMode(), "tcp", "tcp", "kafka", "rocketMQ", "rabbitMQ", "pulsarMQ"),
@@ -133,8 +134,8 @@ public class CanalRuntimeSettingService {
                 valueOrDefault(request.adminManager(), "127.0.0.1:8089"),
                 valueOrDefault(request.adminUser(), "admin"),
                 value(request.adminPassword()),
-                bool(request.adminAutoRegister(), 0),
-                value(request.adminCluster()),
+                adminAutoRegister,
+                adminAutoRegister == 1 ? valueOrDefault(request.adminCluster(), "default") : value(request.adminCluster()),
                 valueOrDefault(request.adminName(), "canal-web"),
                 value(request.projectDir()),
                 value(request.runtimeRootDir()),

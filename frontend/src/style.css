@@ -568,10 +568,17 @@ svg {
   border-radius: 8px;
   border-inline-start-width: 1px;
   white-space: normal;
+  cursor: pointer;
 }
 
 .sync-mode-group .ant-radio-button-wrapper::before {
   display: none;
+}
+
+.sync-mode-group .ant-radio-button-wrapper-checked {
+  color: #fff;
+  background: #1677ff;
+  border-color: #1677ff;
 }
 
 .sync-mode-option {

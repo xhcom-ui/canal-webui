@@ -109,7 +109,7 @@
         <div class="toolbar target-test-actions">
           <a-button @click="testTarget"><PlugZap :size="15" />测试目标端</a-button>
         </div>
-        <SyncStrategy v-model="form" />
+        <SyncStrategy :model-value="form" @update:modelValue="updateForm" />
         <a-form-item label="字段映射">
           <FieldMapping v-model="form.fieldMappings" :target-type="form.targetType" />
           <div class="toolbar target-test-actions field-mapping-actions">
@@ -553,6 +553,10 @@ function assign(data) {
   sourceColumns.value = []
   sqlPreview.value = {}
   fieldMappingValidation.value = {}
+}
+
+function updateForm(next) {
+  Object.assign(form, next)
 }
 
 function openCreate() {

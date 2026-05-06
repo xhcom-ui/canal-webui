@@ -754,12 +754,16 @@ public class CanalRuntimeService {
                 canalServer.port,
                 canalServer.metricsPort,
                 canalServer.adminPort,
-                value(setting.adminManager()),
+                setting.adminAutoRegister() != null && setting.adminAutoRegister() == 1
+                        ? value(setting.adminManager())
+                        : "",
                 valueOrDefault(setting.adminUser(), "admin"),
                 value(setting.adminPassword()),
                 setting.adminAutoRegister() != null && setting.adminAutoRegister() == 1,
-                value(setting.adminCluster()),
-                value(setting.adminName()),
+                setting.adminAutoRegister() != null && setting.adminAutoRegister() == 1
+                        ? valueOrDefault(setting.adminCluster(), "default")
+                        : value(setting.adminCluster()),
+                valueOrDefault(setting.adminName(), "canal-web"),
                 value(setting.zkServers()),
                 setting.serverMode(),
                 destinations,
@@ -1192,6 +1196,7 @@ public class CanalRuntimeService {
         addPath(candidates, System.getProperty("canal-web.runtime.root-dir"));
         addPath(candidates, System.getenv("CANAL_WEB_RUNTIME_ROOT_DIR"));
         addPath(candidates, settingService.get().runtimeRootDir());
+        addPath(candidates, Path.of(System.getProperty("user.home", ".")).resolve(".local/canal-runtime-local").toString());
         addPath(candidates, projectPath("canal-runtime").toString());
         addPath(candidates, rootDir);
         addPath(candidates, Path.of(System.getProperty("user.dir", ".")).resolve("canal-runtime").toString());
@@ -1204,6 +1209,7 @@ public class CanalRuntimeService {
         addPathList(candidates, System.getenv("CANAL_SERVER_HOME_PATHS"));
         addPath(candidates, System.getProperty("canal-web.runtime.server-home"));
         addPath(candidates, System.getenv("CANAL_SERVER_HOME"));
+        addPath(candidates, Path.of(System.getProperty("user.home", ".")).resolve(".local/canal-server-local").toString());
         addPath(candidates, runtimeRoot().resolve("canal-server").toString());
         addPath(candidates, projectPath("canal-runtime/canal-server").toString());
         addPath(candidates, canalServer.home);
@@ -1218,6 +1224,7 @@ public class CanalRuntimeService {
         addPathList(candidates, System.getenv("CANAL_ADAPTER_HOME_PATHS"));
         addPath(candidates, System.getProperty("canal-web.runtime.adapter-home"));
         addPath(candidates, System.getenv("CANAL_ADAPTER_HOME"));
+        addPath(candidates, Path.of(System.getProperty("user.home", ".")).resolve(".local/canal-adapter-local").toString());
         addPath(candidates, runtimeRoot().resolve("canal-adapter").toString());
         addPath(candidates, projectPath("canal-runtime/canal-adapter").toString());
         addPath(candidates, canalAdapter.getHome());

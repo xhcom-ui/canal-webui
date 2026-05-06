@@ -238,7 +238,7 @@
                 <a-switch :checked="settingForm.adminAutoRegister === 1" @change="setAdminAutoRegister" />
               </a-form-item>
               <a-form-item label="注册集群">
-                <a-input v-model:value="settingForm.adminCluster" placeholder="留空表示不绑定集群" />
+                <a-input v-model:value="settingForm.adminCluster" placeholder="default" />
               </a-form-item>
               <a-form-item label="注册名称">
                 <a-input v-model:value="settingForm.adminName" placeholder="canal-web" />
